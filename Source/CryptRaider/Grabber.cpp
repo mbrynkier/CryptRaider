@@ -32,38 +32,12 @@ void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompone
 	UPhysicsHandleComponent* PhysicsHandle = GetPhysicsHandle();
 
 	//If Physics handle is null just return to avoid crashing
-	if (PhysicsHandle == nullptr)
+	if (PhysicsHandle && PhysicsHandle->GetGrabbedComponent())
 	{
-		return;
-	}
-
-	if (PhysicsHandle->GetGrabbedComponent() != nullptr)
-	{		
 		FVector TargetLocantion = GetComponentLocation() + GetForwardVector() * HoldDistance;
 		PhysicsHandle->SetTargetLocationAndRotation(TargetLocantion, GetComponentRotation());
 	}
-	
 
-}
-
-void UGrabber::Release()
-{
-	UE_LOG(LogTemp, Display, TEXT("Released grabber"));
-	UPhysicsHandleComponent* PhysicsHandle = GetPhysicsHandle();
-	//If Physics handle is null just return to avoid crashing
-	if (PhysicsHandle == nullptr)
-	{
-		return;
-	}
-
-	UPrimitiveComponent* HitComponent = PhysicsHandle->GetGrabbedComponent();
-
-	if (HitComponent != nullptr)
-	{
-		HitComponent->WakeAllRigidBodies();
-		PhysicsHandle->ReleaseComponent();
-	}
-	
 }
 
 void UGrabber::Grab()
@@ -82,7 +56,11 @@ void UGrabber::Grab()
 	if (HasHit)
 	{
 		UPrimitiveComponent* HitComponent = HitResult.GetComponent();
+		HitComponent->SetSimulatePhysics(true);
 		HitComponent->WakeAllRigidBodies();		
+		AActor* HitActor = HitResult.GetActor();
+		HitActor->Tags.Add("Grabbed");
+		HitActor->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 
 		PhysicsHandle->GrabComponentAtLocationWithRotation(
 			HitComponent, 
@@ -90,6 +68,22 @@ void UGrabber::Grab()
 			HitResult.ImpactPoint, 
 			GetComponentRotation());
 	}
+}
+
+void UGrabber::Release()
+{
+	UE_LOG(LogTemp, Display, TEXT("Released grabber"));
+	UPhysicsHandleComponent* PhysicsHandle = GetPhysicsHandle();
+	//If Physics handle is null just return to avoid crashing
+	if (PhysicsHandle && PhysicsHandle->GetGrabbedComponent())
+	{
+		UPrimitiveComponent* HitComponent = PhysicsHandle->GetGrabbedComponent();
+
+		HitComponent->WakeAllRigidBodies();
+		HitComponent->GetOwner()->Tags.Remove("Grabbed");
+		PhysicsHandle->ReleaseComponent();
+	}	
+	
 }
 
 UPhysicsHandleComponent* UGrabber::GetPhysicsHandle() const
